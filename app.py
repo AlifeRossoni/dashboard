@@ -15,47 +15,48 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS Personalizado (KPIs Alinhados e Centralizados)
+# CSS Personalizado (KPIs Perfeitos)
 st.markdown("""
 <style>
-    /* Cards KPI - Ajuste de Alinhamento */
+    /* Cards KPI - Estrutura Flexbox Rigida */
     div.kpi-card {
         background-color: #262730; 
         border-radius: 12px;
         padding: 15px;
-        text-align: center;
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         border: 1px solid #444;
         margin-bottom: 15px;
-        height: 150px; /* Altura fixa */
+        height: 160px; /* Altura fixa igual para todos */
         display: flex;
         flex-direction: column;
-        justify-content: center; /* Centraliza Verticalmente */
-        align-items: center;     /* Centraliza Horizontalmente */
+        justify-content: space-evenly; /* Distribui espaço igual entre titulo, numero e meta */
+        align-items: center;
+        overflow: hidden; /* Garante que nada saia da caixa */
     }
     
     div.kpi-card h3 { 
         color: #d3d3d3; 
         font-size: 14px; 
-        margin: 0 0 10px 0 !important; /* Força margem */
         text-transform: uppercase; 
         letter-spacing: 1px;
+        margin: 0 !important;
+        padding: 0 !important;
         line-height: 1.2;
     }
     
     div.kpi-card h2 { 
         color: #ffffff; 
-        font-size: 32px; 
-        margin: 0 !important; /* Remove margem padrão */
-        font-weight: 700;
+        font-size: 34px; 
+        font-weight: 800;
+        margin: 0 !important;
+        padding: 0 !important;
         line-height: 1;
     }
     
     div.kpi-card span { 
-        font-size: 12px; 
+        font-size: 13px; 
         color: #aaaaaa; 
-        margin-top: 8px; 
-        display: block; 
+        margin: 0 !important;
     }
     
     /* Ajustes Gerais */
@@ -207,19 +208,20 @@ if page == "Visão Geral":
         cor_borda = "#555"
         cor_texto_delta = "#999"
 
-    # CARDS KPI (CSS Atualizado)
+    # CARDS KPI (LAYOUT ARRUMADO)
     col1, col2, col3, col4, col5 = st.columns(5)
-    with col1: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #0083B8;"><h3>Avaliações</h3><h2>{total_avaliacoes}</h2></div>""", unsafe_allow_html=True)
+    with col1: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #0083B8;"><h3>Avaliações</h3><h2>{total_avaliacoes}</h2><span>Volumetria</span></div>""", unsafe_allow_html=True)
     with col2: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid {cor_borda};"><h3>Nota Média</h3><h2 style="color:{cor_texto_delta}">{media_score:.1f}%</h2><span>Meta: {meta_qualidade:.1f}%</span></div>""", unsafe_allow_html=True)
-    with col3: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #f0ad4e;"><h3>% Feedback</h3><h2>{perc_fb_aplicado:.1f}%</h2></div>""", unsafe_allow_html=True)
-    with col4: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #2ca02c;"><h3>Notas 100</h3><h2>{notas_100}</h2></div>""", unsafe_allow_html=True)
-    with col5: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #d62728;"><h3>Notas 0</h3><h2>{notas_0}</h2></div>""", unsafe_allow_html=True)
+    with col3: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #f0ad4e;"><h3>% Feedback</h3><h2>{perc_fb_aplicado:.1f}%</h2><span>Aderência</span></div>""", unsafe_allow_html=True)
+    with col4: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #2ca02c;"><h3>Notas 100</h3><h2>{notas_100}</h2><span>Excelência</span></div>""", unsafe_allow_html=True)
+    with col5: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #d62728;"><h3>Notas 0</h3><h2>{notas_0}</h2><span>Fatais</span></div>""", unsafe_allow_html=True)
 
     st.markdown("---")
 
     # Linha 1
     col_g1, col_g2 = st.columns(2)
     with col_g1:
+        # Evolução Mensal
         media_mes = df_filtrado.groupby('Mês_Nome', observed=True)['Nota'].mean().reset_index()
         fig_evolucao = px.area(media_mes, x='Mês_Nome', y='Nota', title="<b>Evolução Mensal (Média)</b>", markers=True)
         fig_evolucao.update_traces(line_color='#0083B8', fillcolor='rgba(0, 131, 184, 0.2)')
@@ -228,6 +230,7 @@ if page == "Visão Geral":
         st.plotly_chart(fig_evolucao, use_container_width=True)
 
     with col_g2:
+        # Nota por Dia
         media_dia = df_filtrado.groupby(df_filtrado['DATA FUSO BR'].dt.date)['Nota'].mean().reset_index()
         fig_dia = px.line(media_dia, x='DATA FUSO BR', y='Nota', title="<b>Evolução Diária (Nota)</b>")
         fig_dia.update_traces(line_color='#f0ad4e')
@@ -237,6 +240,7 @@ if page == "Visão Geral":
     # Linha 2
     col_g3, col_g4 = st.columns(2)
     with col_g3:
+        # Média por Account
         media_acc = df_filtrado.groupby('Account')['Nota'].mean().reset_index().sort_values('Nota')
         fig_barras = px.bar(media_acc, y='Account', x='Nota', title="<b>Média por Account</b>", text_auto='.1f', orientation='h')
         cores = ['#d3d3d3' if x < meta_qualidade else '#0083B8' for x in media_acc['Nota']]
@@ -247,9 +251,10 @@ if page == "Visão Geral":
     with col_g4:
         # Pareto por CÉLULA e MÉDIA DA NOTA
         if 'CÉLULA' in df_filtrado.columns:
+            # Agrupa por célula e calcula a média da nota
             pareto_data = df_filtrado.groupby('CÉLULA')['Nota'].mean().reset_index().sort_values('Nota', ascending=False)
             
-            # Cálculo do Acumulado (baseado na soma das médias para o pareto visual)
+            # Cálculo acumulado da métrica visualizada
             pareto_data['Acumulado'] = pareto_data['Nota'].cumsum() / pareto_data['Nota'].sum() * 100
             
             fig_pareto = go.Figure()
@@ -275,9 +280,9 @@ if page == "Visão Geral":
         st.plotly_chart(fig_pizza, use_container_width=True)
 
     with col_g6:
-        # Histograma (bargap adicionado para desgrudar)
+        # Histograma (ESPAÇAMENTO CORRIGIDO)
         fig_hist = px.histogram(df_filtrado, x="Nota", nbins=20, title="<b>Distribuição de Notas</b>", color_discrete_sequence=['#0083B8'])
-        fig_hist.update_layout(bargap=0.1) 
+        fig_hist.update_layout(bargap=0.2) 
         st.plotly_chart(fig_hist, use_container_width=True)
 
 # ==============================================================================
@@ -311,21 +316,22 @@ elif page == "Report Detalhado":
             Desvio_Padrao=('Nota Média', 'std')
         ).reset_index()
         
-        # Cálculo de Dispersão (Média Q4 / Média Q1)
+        # Cálculo de Dispersão (Média Q4 / Média Q1) - CORRIGIDO
         try:
-            # Filtra os valores para garantir que existem
-            row_q1 = resumen_quartil[resumo_quartil['Quartil'] == "Q1 (Top)"]
-            row_q4 = resumen_quartil[resumo_quartil['Quartil'] == "Q4 (Bottom)"]
+            # Usando contains para pegar Q1 e Q4 independente do texto exato (Top/Bottom)
+            q1_row = resumo_quartil[resumo_quartil['Quartil'].str.contains("Q1")]
+            q4_row = resumo_quartil[resumo_quartil['Quartil'].str.contains("Q4")]
             
-            if not row_q1.empty and not row_q4.empty:
-                nota_q1 = row_q1['Nota_Media_Grupo'].values[0]
-                nota_q4 = row_q4['Nota_Media_Grupo'].values[0]
+            if not q1_row.empty and not q4_row.empty:
+                nota_q1 = q1_row['Nota_Media_Grupo'].values[0]
+                nota_q4 = q4_row['Nota_Media_Grupo'].values[0]
                 # Q4 / Q1
                 dispersao = (nota_q4 / nota_q1) if nota_q1 > 0 else 0
             else:
                 dispersao = 0
-        except:
+        except Exception as e:
             dispersao = 0
+            # st.error(f"Erro no calculo dispersão: {e}") # Debug se necessario
             
         col_q1, col_q2 = st.columns([1, 1.5])
         
