@@ -15,10 +15,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS Personalizado (KPIs Escuros e Letras Grandes)
+# CSS Personalizado
 st.markdown("""
 <style>
-    /* Estilo dos Cards de KPI */
+    /* Cards KPI */
     div.kpi-card {
         background-color: #262730; 
         border-radius: 12px;
@@ -29,34 +29,17 @@ st.markdown("""
         margin-bottom: 15px;
         transition: transform 0.2s;
     }
-    div.kpi-card:hover {
-        transform: scale(1.02);
-    }
-    div.kpi-card h3 {
-        color: #d3d3d3;
-        font-size: 16px;
-        margin-bottom: 5px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    div.kpi-card h2 {
-        color: #ffffff;
-        font-size: 32px;
-        margin: 0;
-        font-weight: 700;
-    }
-    div.kpi-card span {
-        font-size: 13px;
-        color: #aaaaaa;
-        margin-top: 5px;
-        display: block;
-    }
-    .block-container { padding-top: 1rem; }
+    div.kpi-card:hover { transform: scale(1.02); }
+    div.kpi-card h3 { color: #d3d3d3; font-size: 16px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+    div.kpi-card h2 { color: #ffffff; font-size: 32px; margin: 0; font-weight: 700; }
+    div.kpi-card span { font-size: 13px; color: #aaaaaa; margin-top: 5px; display: block; }
     
-    /* Melhorar visual da sidebar */
-    section[data-testid="stSidebar"] {
-        background-color: #1e1e1e;
-    }
+    /* Ajustes Gerais */
+    .block-container { padding-top: 1rem; }
+    section[data-testid="stSidebar"] { background-color: #1e1e1e; }
+    
+    /* Texto de observação pequeno */
+    .obs-text { font-size: 12px; color: #888; font-style: italic; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -70,11 +53,12 @@ def carregar_dados():
         df = pd.read_excel(arquivo, sheet_name="BD")
         df['DATA FUSO BR'] = pd.to_datetime(df['DATA FUSO BR'])
         
-        # Ordenação dos meses
         month_map = {1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
                      7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'}
         if 'DATA FUSO BR' in df.columns:
             df['Mês_Nome'] = df['DATA FUSO BR'].dt.month.map(month_map)
+            # Criar coluna Dia da Semana para análise extra
+            df['Dia_Semana'] = df['DATA FUSO BR'].dt.day_name()
             
         return df
     except Exception as e:
@@ -83,22 +67,17 @@ def carregar_dados():
 
 df = carregar_dados()
 
-if df is None:
-    st.stop()
+if df is None: st.stop()
 
 # ==============================================================================
-# 3. BARRA LATERAL (FILTROS E NAVEGAÇÃO)
+# 3. BARRA LATERAL (FILTROS)
 # ==============================================================================
 with st.sidebar:
-    # LOGO
-    try:
-        st.image("logo.png", use_container_width=True) 
-    except:
-        pass # Se não tiver logo, segue vida
+    try: st.image("logo.png", use_container_width=True) 
+    except: pass 
     
-    # NAVEGAÇÃO "MAIS BONITINHA"
     page = option_menu(
-        menu_title=None, # Remove título para ficar mais limpo
+        menu_title=None,
         options=['Visão Geral', 'Report Detalhado'],
         icons=['graph-up-arrow', 'file-earmark-spreadsheet'],
         menu_icon='cast',
@@ -106,13 +85,7 @@ with st.sidebar:
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
             "icon": {"color": "#0083B8", "font-size": "18px"}, 
-            "nav-link": {
-                "font-size": "15px",
-                "text-align": "left",
-                "margin": "5px",
-                "color": "#eee",
-                "border-radius": "10px"
-            },
+            "nav-link": {"font-size": "15px", "text-align": "left", "margin": "5px", "color": "#eee", "border-radius": "10px"},
             "nav-link-selected": {"background-color": "#0083B8", "color": "white"},
         }
     )
@@ -120,64 +93,55 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("<h3 style='text-align: left; color: #0083B8;'>🎛️ Filtros</h3>", unsafe_allow_html=True)
     
-    # Filtro de Data
     min_date = df['DATA FUSO BR'].min().date()
     max_date = df['DATA FUSO BR'].max().date()
     col_d1, col_d2 = st.columns(2)
     data_inicio = col_d1.date_input("Início", min_date, min_value=min_date, max_value=max_date)
     data_fim = col_d2.date_input("Fim", max_date, min_value=min_date, max_value=max_date)
 
-    # --- FILTROS EM CASCATA ---
-    
+    # --- CASCATA ---
     # 1. Account
     lista_accounts = sorted(list(df['Account'].unique()))
     lista_accounts.insert(0, "TODOS")
     sel_account = st.selectbox("Account:", lista_accounts)
+    df_s1 = df[df['Account'] == sel_account] if sel_account != "TODOS" else df
     
-    df_step1 = df[df['Account'] == sel_account] if sel_account != "TODOS" else df
-    
-    # 2. Coordenador (Novo)
+    # 2. Coordenador
     if 'COORDENADOR' in df.columns:
-        lista_coord = sorted(list(df_step1['COORDENADOR'].dropna().unique()))
+        lista_coord = sorted(list(df_s1['COORDENADOR'].dropna().unique()))
         lista_coord.insert(0, "TODOS")
         sel_coordenador = st.selectbox("Coordenador:", lista_coord)
-        df_step2 = df_step1[df_step1['COORDENADOR'] == sel_coordenador] if sel_coordenador != "TODOS" else df_step1
-    else:
-        sel_coordenador = "TODOS"
-        df_step2 = df_step1
+        df_s2 = df_s1[df_s1['COORDENADOR'] == sel_coordenador] if sel_coordenador != "TODOS" else df_s1
+    else: sel_coordenador, df_s2 = "TODOS", df_s1
 
     # 3. Supervisor
-    lista_supervisores = sorted(list(df_step2['SUPERVISOR'].dropna().unique()))
+    lista_supervisores = sorted(list(df_s2['SUPERVISOR'].dropna().unique()))
     lista_supervisores.insert(0, "TODOS")
     sel_supervisor = st.selectbox("Supervisor:", lista_supervisores)
+    df_s3 = df_s2[df_s2['SUPERVISOR'] == sel_supervisor] if sel_supervisor != "TODOS" else df_s2
     
-    df_step3 = df_step2[df_step2['SUPERVISOR'] == sel_supervisor] if sel_supervisor != "TODOS" else df_step2
-    
-    # 4. Célula (Novo)
+    # 4. Célula
     if 'CÉLULA' in df.columns:
-        lista_celula = sorted(list(df_step3['CÉLULA'].dropna().unique()))
+        lista_celula = sorted(list(df_s3['CÉLULA'].dropna().unique()))
         lista_celula.insert(0, "TODOS")
         sel_celula = st.selectbox("Célula:", lista_celula)
-        df_step4 = df_step3[df_step3['CÉLULA'] == sel_celula] if sel_celula != "TODOS" else df_step3
-    else:
-        sel_celula = "TODOS"
-        df_step4 = df_step3
+        df_s4 = df_s3[df_s3['CÉLULA'] == sel_celula] if sel_celula != "TODOS" else df_s3
+    else: sel_celula, df_s4 = "TODOS", df_s3
 
-    # 5. Tipo de Monitoria (Novo)
+    # 5. Tipo Monitoria
     if 'TIPO MONITORIA' in df.columns:
-        lista_tipo = sorted(list(df_step4['TIPO MONITORIA'].dropna().unique()))
+        lista_tipo = sorted(list(df_s4['TIPO MONITORIA'].dropna().unique()))
         lista_tipo.insert(0, "TODOS")
         sel_tipo_mon = st.selectbox("Tipo Monitoria:", lista_tipo)
-    else:
-        sel_tipo_mon = "TODOS"
+    else: sel_tipo_mon = "TODOS"
     
     # 6. Hierarquia
-    lista_hierarquia = sorted(list(df_step4['HIERARQUIA AVALIADOR'].dropna().unique()))
+    lista_hierarquia = sorted(list(df_s4['HIERARQUIA AVALIADOR'].dropna().unique()))
     lista_hierarquia.insert(0, "TODOS")
     sel_hierarquia = st.selectbox("Hierarquia:", lista_hierarquia)
 
 # ==============================================================================
-# 4. FILTRAGEM FINAL DO DATAFRAME
+# 4. FILTRAGEM FINAL
 # ==============================================================================
 mask_data = (df['DATA FUSO BR'].dt.date >= data_inicio) & (df['DATA FUSO BR'].dt.date <= data_fim)
 df_filtrado = df.loc[mask_data]
@@ -189,21 +153,15 @@ if sel_celula != "TODOS": df_filtrado = df_filtrado[df_filtrado["CÉLULA"] == se
 if sel_tipo_mon != "TODOS": df_filtrado = df_filtrado[df_filtrado["TIPO MONITORIA"] == sel_tipo_mon]
 if sel_hierarquia != "TODOS": df_filtrado = df_filtrado[df_filtrado["HIERARQUIA AVALIADOR"] == sel_hierarquia]
 
-# Ordenação Meses
-month_order = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
-               'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+month_order = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 if 'Mês_Nome' in df_filtrado.columns:
     df_filtrado['Mês_Nome'] = pd.Categorical(df_filtrado['Mês_Nome'], categories=month_order, ordered=True)
     df_filtrado.sort_values('DATA FUSO BR', inplace=True)
 
-# Lógica da META Dinâmica
+# Meta Dinâmica
 if "META" in df_filtrado.columns:
-    if sel_account == "TODOS":
-        meta_qualidade = df_filtrado["META"].mean()
-    else:
-        meta_qualidade = df_filtrado["META"].max()
-else:
-    meta_qualidade = 90 # Fallback se não tiver coluna META
+    meta_qualidade = df_filtrado["META"].mean() if sel_account == "TODOS" else df_filtrado["META"].max()
+else: meta_qualidade = 90
 
 # ==============================================================================
 # 5. PÁGINA 1: VISÃO GERAL
@@ -218,7 +176,6 @@ if page == "Visão Geral":
     if total_avaliacoes > 0:
         media_score = df_filtrado["Internal Score With Bonus And Fatal Error (%)"].mean()
         delta_meta = media_score - meta_qualidade
-        # Cores Dinâmicas
         cor_borda = "#2ca02c" if delta_meta >= 0 else "#d62728"
         cor_texto_delta = "#2ca02c" if delta_meta >= 0 else "#d62728"
         
@@ -230,27 +187,17 @@ if page == "Visão Geral":
         cor_borda = "#555"
         cor_texto_delta = "#999"
 
-    # CARDS DE KPI
+    # CARDS KPI
     col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #0083B8;"><h3>Avaliações</h3><h2>{total_avaliacoes}</h2></div>""", unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"""
-        <div class="kpi-card" style="border-left: 5px solid {cor_borda};">
-            <h3>Nota Média</h3>
-            <h2 style="color:{cor_texto_delta}">{media_score:.1f}%</h2>
-            <span>Meta: {meta_qualidade:.1f}%</span>
-        </div>""", unsafe_allow_html=True)
-    with col3:
-        st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #f0ad4e;"><h3>% Feedback</h3><h2>{perc_fb_aplicado:.1f}%</h2></div>""", unsafe_allow_html=True)
-    with col4:
-        st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #2ca02c;"><h3>Notas 100</h3><h2>{notas_100}</h2></div>""", unsafe_allow_html=True)
-    with col5:
-        st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #d62728;"><h3>Notas 0</h3><h2>{notas_0}</h2></div>""", unsafe_allow_html=True)
+    with col1: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #0083B8;"><h3>Avaliações</h3><h2>{total_avaliacoes}</h2></div>""", unsafe_allow_html=True)
+    with col2: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid {cor_borda};"><h3>Nota Média</h3><h2 style="color:{cor_texto_delta}">{media_score:.1f}%</h2><span>Meta: {meta_qualidade:.1f}%</span></div>""", unsafe_allow_html=True)
+    with col3: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #f0ad4e;"><h3>% Feedback</h3><h2>{perc_fb_aplicado:.1f}%</h2></div>""", unsafe_allow_html=True)
+    with col4: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #2ca02c;"><h3>Notas 100</h3><h2>{notas_100}</h2></div>""", unsafe_allow_html=True)
+    with col5: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #d62728;"><h3>Notas 0</h3><h2>{notas_0}</h2></div>""", unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # Gráficos
+    # Gráficos Linha 1
     col_g1, col_g2 = st.columns(2)
     with col_g1:
         media_mes = df_filtrado.groupby('Mês_Nome', observed=True)['Internal Score With Bonus And Fatal Error (%)'].mean().reset_index()
@@ -268,6 +215,7 @@ if page == "Visão Geral":
         fig_barras.add_vline(x=meta_qualidade, line_dash="dot", line_color="red")
         st.plotly_chart(fig_barras, use_container_width=True)
 
+    # Gráficos Linha 2
     col_g3, col_g4 = st.columns(2)
     with col_g3:
         values = [df_filtrado["FEEDBACK APLICADO"].sum(), df_filtrado["FEEDBACK PENDENTE"].sum(), df_filtrado["FEEDBACK NÃO APLICADO"].sum()]
@@ -276,6 +224,25 @@ if page == "Visão Geral":
         st.plotly_chart(fig_pizza, use_container_width=True)
         
     with col_g4:
+        # NOVO GRÁFICO: Histograma de Distribuição de Notas
+        fig_hist = px.histogram(df_filtrado, x="Internal Score With Bonus And Fatal Error (%)", 
+                                nbins=20, title="<b>Distribuição de Notas</b>", color_discrete_sequence=['#0083B8'])
+        fig_hist.update_layout(bargap=0.1)
+        st.plotly_chart(fig_hist, use_container_width=True)
+        
+    # Gráficos Linha 3 (Análise Extra)
+    st.markdown("### 🔎 Análises Extras")
+    col_g5, col_g6 = st.columns(2)
+    with col_g5:
+        # NOVO: Qualidade por Dia da Semana
+        # Precisamos traduzir dias da semana se estiverem em ingles
+        order_days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        media_dia = df_filtrado.groupby('Dia_Semana')['Internal Score With Bonus And Fatal Error (%)'].mean().reindex(order_days).reset_index()
+        fig_dia = px.line(media_dia, x='Dia_Semana', y='Internal Score With Bonus And Fatal Error (%)', title="<b>Média por Dia da Semana</b>", markers=True)
+        fig_dia.update_yaxes(range=[0, 110])
+        st.plotly_chart(fig_dia, use_container_width=True)
+    with col_g6:
+        # Top Supervisores
         media_sup = df_filtrado.groupby('SUPERVISOR')['Internal Score With Bonus And Fatal Error (%)'].mean().reset_index().sort_values('Internal Score With Bonus And Fatal Error (%)', ascending=False).head(10)
         fig_sup = px.bar(media_sup, x='SUPERVISOR', y='Internal Score With Bonus And Fatal Error (%)', title="<b>Top 10 Supervisores</b>", text_auto='.1f')
         fig_sup.add_hline(y=meta_qualidade, line_dash="dot", line_color="red")
@@ -287,8 +254,9 @@ if page == "Visão Geral":
 elif page == "Report Detalhado":
     st.title("📑 Relatório Detalhado")
     
-    # Análise de Quartil
+    # Análise de Quartil (NOVO LAYOUT)
     st.subheader("📊 Análise de Quartil")
+    
     media_por_operador = df_filtrado.groupby('Auditee')['Internal Score With Bonus And Fatal Error (%)'].mean().reset_index()
     media_por_operador.rename(columns={'Internal Score With Bonus And Fatal Error (%)': 'Nota Média'}, inplace=True)
     
@@ -298,32 +266,51 @@ elif page == "Report Detalhado":
         q3_limit = media_por_operador['Nota Média'].quantile(0.75)
         
         def classificar_quartil(media):
-            if media > q3_limit: return "Q1 (Top)"
+            if media > q3_limit: return "Q1"
             elif media > q2_limit: return "Q2"
             elif media > q1_limit: return "Q3"
-            else: return "Q4 (Bottom)"
+            else: return "Q4"
         
         media_por_operador['Quartil'] = media_por_operador['Nota Média'].apply(classificar_quartil)
         
+        # Agrupamento
         resumo_quartil = media_por_operador.groupby('Quartil').agg(
             Qtd_Operadores=('Auditee', 'count'),
             Nota_Media_Grupo=('Nota Média', 'mean')
         ).reset_index()
         
-        col_q1, col_q2 = st.columns([1, 2])
-        with col_q1: st.table(resumo_quartil.style.format({"Nota_Media_Grupo": "{:.1f}"}))
-        with col_q2: st.info(f"**Q1 (Top):** > {q3_limit:.1f} | **Q4 (Bottom):** < {q1_limit:.1f}")
+        # LAYOUT: Tabela na Esquerda, Gráfico na Direita
+        col_q1, col_q2 = st.columns([1, 1.5])
         
-        with st.expander("Ver Classificação de Todos os Operadores"):
+        with col_q1:
+            st.markdown("##### Resumo")
+            st.table(resumo_quartil.style.format({"Nota_Media_Grupo": "{:.1f}"}))
+            
+        with col_q2:
+            st.markdown("##### Distribuição de Operadores")
+            fig_quartil = px.bar(resumo_quartil, x='Quartil', y='Qtd_Operadores', 
+                                 text='Qtd_Operadores', color='Quartil',
+                                 color_discrete_map={'Q1': '#2ca02c', 'Q2': '#0083B8', 'Q3': '#f0ad4e', 'Q4': '#d62728'})
+            st.plotly_chart(fig_quartil, use_container_width=True)
+        
+        # TEXTO DE OBSERVAÇÃO PEQUENO
+        st.markdown(f"""
+        <p class="obs-text">
+        * Nota: Q1 (Top Performance) considera notas acima de {q3_limit:.1f}. 
+        Q4 (Baixa Performance) considera notas abaixo de {q1_limit:.1f}.
+        </p>
+        """, unsafe_allow_html=True)
+
+        with st.expander("Ver Lista de Operadores por Quartil"):
             st.dataframe(media_por_operador.sort_values('Nota Média', ascending=False), use_container_width=True)
     else:
         st.warning("Dados insuficientes para cálculo de Quartil.")
     
     st.markdown("---")
-    st.subheader("📥 Dados Gerais")
     
-    # Colunas para visualização (Adicionadas as novas)
-    cols_visualizacao = ['DATA FUSO BR', 'Auditee', 'SUPERVISOR', 'COORDENADOR', 'CÉLULA', 'TIPO MONITORIA', 'Internal Score With Bonus And Fatal Error (%)', 'FEEDBACK APLICADO', 'Account']
+    # DADOS GERAIS
+    st.subheader("📥 Dados Brutos")
+    cols_visualizacao = ['DATA FUSO BR', 'Auditee', 'SUPERVISOR', 'COORDENADOR', 'CÉLULA', 'Internal Score With Bonus And Fatal Error (%)', 'FEEDBACK APLICADO', 'Account']
     cols_finais = [c for c in cols_visualizacao if c in df_filtrado.columns]
     
     st.dataframe(df_filtrado[cols_finais].sort_values('DATA FUSO BR', ascending=False), use_container_width=True, hide_index=True)
@@ -332,5 +319,21 @@ elif page == "Report Detalhado":
     def convert_df(df): return df.to_csv(index=False).encode('utf-8')
     csv = convert_df(df_filtrado)
     st.download_button(label="📥 Baixar Excel (CSV)", data=csv, file_name=f'report_completo.csv', mime='text/csv')
+    
+    st.markdown("---")
+    
+    # TABELA DE OFENSORES (REINSERIDA)
+    st.subheader("🚨 Top Ofensores (Reincidentes em Nota 0)")
+    
+    try:
+        reincidentes = df_filtrado[df_filtrado['Internal Score With Bonus And Fatal Error (%)'] == 0]
+        if not reincidentes.empty:
+            top_ofensores = reincidentes.groupby(['Auditee', 'SUPERVISOR']).size().reset_index(name='Qtd Notas 0')
+            top_ofensores = top_ofensores.sort_values('Qtd Notas 0', ascending=False).head(10)
+            st.table(top_ofensores)
+        else:
+            st.success("Nenhuma nota 0 encontrada neste período.")
+    except Exception as e:
+        st.error(f"Erro ao calcular ofensores: {e}")
 
 st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;}</style>""", unsafe_allow_html=True)
