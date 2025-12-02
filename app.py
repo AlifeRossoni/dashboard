@@ -15,10 +15,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS Personalizado
+# CSS Personalizado (KPIs Alinhados e Centralizados)
 st.markdown("""
 <style>
-    /* Cards KPI - Tamanho Fixo e Alinhado */
+    /* Cards KPI - Ajuste de Alinhamento */
     div.kpi-card {
         background-color: #262730; 
         border-radius: 12px;
@@ -27,17 +27,36 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         border: 1px solid #444;
         margin-bottom: 15px;
-        height: 140px; /* Altura fixa para alinhar todos */
+        height: 150px; /* Altura fixa */
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        transition: transform 0.2s;
+        justify-content: center; /* Centraliza Verticalmente */
+        align-items: center;     /* Centraliza Horizontalmente */
     }
-    div.kpi-card:hover { transform: scale(1.02); }
-    div.kpi-card h3 { color: #d3d3d3; font-size: 14px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
-    div.kpi-card h2 { color: #ffffff; font-size: 28px; margin: 0; font-weight: 700; }
-    div.kpi-card span { font-size: 12px; color: #aaaaaa; margin-top: 5px; display: block; }
+    
+    div.kpi-card h3 { 
+        color: #d3d3d3; 
+        font-size: 14px; 
+        margin: 0 0 10px 0 !important; /* Força margem */
+        text-transform: uppercase; 
+        letter-spacing: 1px;
+        line-height: 1.2;
+    }
+    
+    div.kpi-card h2 { 
+        color: #ffffff; 
+        font-size: 32px; 
+        margin: 0 !important; /* Remove margem padrão */
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    div.kpi-card span { 
+        font-size: 12px; 
+        color: #aaaaaa; 
+        margin-top: 8px; 
+        display: block; 
+    }
     
     /* Ajustes Gerais */
     .block-container { padding-top: 1rem; }
@@ -56,7 +75,7 @@ def carregar_dados():
         df = pd.read_excel(arquivo, sheet_name="BD")
         df['DATA FUSO BR'] = pd.to_datetime(df['DATA FUSO BR'])
         
-        # Renomear coluna gigante para facilitar
+        # Renomear coluna de Nota se necessário
         col_nota = "Internal Score With Bonus And Fatal Error (%)"
         if col_nota in df.columns:
             df.rename(columns={col_nota: "Nota"}, inplace=True)
@@ -188,7 +207,7 @@ if page == "Visão Geral":
         cor_borda = "#555"
         cor_texto_delta = "#999"
 
-    # CARDS KPI (Alinhados)
+    # CARDS KPI (CSS Atualizado)
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid #0083B8;"><h3>Avaliações</h3><h2>{total_avaliacoes}</h2></div>""", unsafe_allow_html=True)
     with col2: st.markdown(f"""<div class="kpi-card" style="border-left: 5px solid {cor_borda};"><h3>Nota Média</h3><h2 style="color:{cor_texto_delta}">{media_score:.1f}%</h2><span>Meta: {meta_qualidade:.1f}%</span></div>""", unsafe_allow_html=True)
@@ -201,7 +220,6 @@ if page == "Visão Geral":
     # Linha 1
     col_g1, col_g2 = st.columns(2)
     with col_g1:
-        # Evolução Mensal
         media_mes = df_filtrado.groupby('Mês_Nome', observed=True)['Nota'].mean().reset_index()
         fig_evolucao = px.area(media_mes, x='Mês_Nome', y='Nota', title="<b>Evolução Mensal (Média)</b>", markers=True)
         fig_evolucao.update_traces(line_color='#0083B8', fillcolor='rgba(0, 131, 184, 0.2)')
@@ -210,7 +228,6 @@ if page == "Visão Geral":
         st.plotly_chart(fig_evolucao, use_container_width=True)
 
     with col_g2:
-        # Nota por Dia (NOVO)
         media_dia = df_filtrado.groupby(df_filtrado['DATA FUSO BR'].dt.date)['Nota'].mean().reset_index()
         fig_dia = px.line(media_dia, x='DATA FUSO BR', y='Nota', title="<b>Evolução Diária (Nota)</b>")
         fig_dia.update_traces(line_color='#f0ad4e')
@@ -220,32 +237,34 @@ if page == "Visão Geral":
     # Linha 2
     col_g3, col_g4 = st.columns(2)
     with col_g3:
-        # Média por Account (Cor corrigida para Azul)
         media_acc = df_filtrado.groupby('Account')['Nota'].mean().reset_index().sort_values('Nota')
         fig_barras = px.bar(media_acc, y='Account', x='Nota', title="<b>Média por Account</b>", text_auto='.1f', orientation='h')
-        # Força cor azul para todos, ou cinza se abaixo da meta
         cores = ['#d3d3d3' if x < meta_qualidade else '#0083B8' for x in media_acc['Nota']]
         fig_barras.update_traces(marker_color=cores)
         fig_barras.add_vline(x=meta_qualidade, line_dash="dot", line_color="red")
         st.plotly_chart(fig_barras, use_container_width=True)
         
     with col_g4:
-        # Pareto de Supervisores (Volume)
-        counts = df_filtrado['SUPERVISOR'].value_counts().reset_index()
-        counts.columns = ['SUPERVISOR', 'Qtd']
-        counts['Acumulado'] = counts['Qtd'].cumsum() / counts['Qtd'].sum() * 100
-        
-        fig_pareto = go.Figure()
-        fig_pareto.add_trace(go.Bar(x=counts['SUPERVISOR'], y=counts['Qtd'], name='Qtd Avaliações', marker_color='#0083B8'))
-        fig_pareto.add_trace(go.Scatter(x=counts['SUPERVISOR'], y=counts['Acumulado'], name='% Acumulado', yaxis='y2', mode='lines+markers', line_color='#d62728'))
-        
-        fig_pareto.update_layout(
-            title="<b>Pareto de Volume por Supervisor</b>",
-            yaxis=dict(title="Quantidade"),
-            yaxis2=dict(title="% Acumulado", overlaying='y', side='right', range=[0, 110]),
-            showlegend=False
-        )
-        st.plotly_chart(fig_pareto, use_container_width=True)
+        # Pareto por CÉLULA e MÉDIA DA NOTA
+        if 'CÉLULA' in df_filtrado.columns:
+            pareto_data = df_filtrado.groupby('CÉLULA')['Nota'].mean().reset_index().sort_values('Nota', ascending=False)
+            
+            # Cálculo do Acumulado (baseado na soma das médias para o pareto visual)
+            pareto_data['Acumulado'] = pareto_data['Nota'].cumsum() / pareto_data['Nota'].sum() * 100
+            
+            fig_pareto = go.Figure()
+            fig_pareto.add_trace(go.Bar(x=pareto_data['CÉLULA'], y=pareto_data['Nota'], name='Nota Média', marker_color='#0083B8'))
+            fig_pareto.add_trace(go.Scatter(x=pareto_data['CÉLULA'], y=pareto_data['Acumulado'], name='% Acumulado', yaxis='y2', mode='lines+markers', line_color='#d62728'))
+            
+            fig_pareto.update_layout(
+                title="<b>Pareto: Célula por Média de Nota</b>",
+                yaxis=dict(title="Nota Média"),
+                yaxis2=dict(title="% Acumulado", overlaying='y', side='right', range=[0, 110]),
+                showlegend=False
+            )
+            st.plotly_chart(fig_pareto, use_container_width=True)
+        else:
+            st.info("Coluna 'CÉLULA' não encontrada para gerar Pareto.")
 
     # Linha 3
     col_g5, col_g6 = st.columns(2)
@@ -256,8 +275,9 @@ if page == "Visão Geral":
         st.plotly_chart(fig_pizza, use_container_width=True)
 
     with col_g6:
-        # Distribuição de Notas (Histograma)
+        # Histograma (bargap adicionado para desgrudar)
         fig_hist = px.histogram(df_filtrado, x="Nota", nbins=20, title="<b>Distribuição de Notas</b>", color_discrete_sequence=['#0083B8'])
+        fig_hist.update_layout(bargap=0.1) 
         st.plotly_chart(fig_hist, use_container_width=True)
 
 # ==============================================================================
@@ -284,18 +304,26 @@ elif page == "Report Detalhado":
         
         media_por_operador['Quartil'] = media_por_operador['Nota Média'].apply(classificar_quartil)
         
-        # Agrupamento com STD e Dispersão
+        # Agrupamento
         resumo_quartil = media_por_operador.groupby('Quartil').agg(
             Qtd_Operadores=('Auditee', 'count'),
             Nota_Media_Grupo=('Nota Média', 'mean'),
             Desvio_Padrao=('Nota Média', 'std')
         ).reset_index()
         
-        # Cálculo de Dispersão Q4/Q1
+        # Cálculo de Dispersão (Média Q4 / Média Q1)
         try:
-            nota_q1 = resumen_quartil[resumen_quartil['Quartil'] == "Q1 (Top)"]['Nota_Media_Grupo'].values[0]
-            nota_q4 = resumen_quartil[resumen_quartil['Quartil'] == "Q4 (Bottom)"]['Nota_Media_Grupo'].values[0]
-            dispersao = (nota_q4 / nota_q1) if nota_q1 > 0 else 0
+            # Filtra os valores para garantir que existem
+            row_q1 = resumen_quartil[resumo_quartil['Quartil'] == "Q1 (Top)"]
+            row_q4 = resumen_quartil[resumo_quartil['Quartil'] == "Q4 (Bottom)"]
+            
+            if not row_q1.empty and not row_q4.empty:
+                nota_q1 = row_q1['Nota_Media_Grupo'].values[0]
+                nota_q4 = row_q4['Nota_Media_Grupo'].values[0]
+                # Q4 / Q1
+                dispersao = (nota_q4 / nota_q1) if nota_q1 > 0 else 0
+            else:
+                dispersao = 0
         except:
             dispersao = 0
             
@@ -308,7 +336,6 @@ elif page == "Report Detalhado":
             
         with col_q2:
             st.markdown("##### Nota Média por Quartil")
-            # GRÁFICO AGORA É MÉDIA, NÃO QTD
             fig_quartil = px.bar(resumo_quartil, x='Quartil', y='Nota_Media_Grupo', 
                                  text_auto='.1f', color='Quartil',
                                  title="Nota Média por Grupo",
@@ -319,7 +346,7 @@ elif page == "Report Detalhado":
         <p class="obs-text">
         * Nota: Q1 (Top Performance) considera notas acima de {q3_limit:.1f}. 
         Q4 (Baixa Performance) considera notas abaixo de {q1_limit:.1f}.
-        Dispersão indica o quão distante a performance do fundo está do topo.
+        Dispersão calculada como (Média Q4 / Média Q1).
         </p>
         """, unsafe_allow_html=True)
 
